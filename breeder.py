@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # This is a poor-man's executable builder, for embedding dependencies into
 # our pagekite.py file until we have proper packaging.
@@ -81,27 +81,21 @@ def br79(data):
   return lines
 
 def format_snake(fn, raw=False, compress=False, binary=False):
-  fd = open(fn, 'rb')
-  if raw:
-    pre, post = '"""\\', '"""'
-    lines = [l.replace('\n', '')
-              .replace('\r', '')
-             for l in fd.readlines()
-             if not l.startswith('from __future__ import')]
-  elif compress:
-    pre, post = 'zlib.decompress(__b64d("""\\', '"""))'
-    lines = br79(base64.b64encode(zlib.compress(''.join(fd.readlines()), 9)))
-  elif binary:
-    pre, post = '__b64d("""\\', '""")'
-    lines = br79(base64.b64encode(''.join(fd.readlines())))
-  else:
-    pre, post = '"""\\', '"""'
-    lines = [l.replace('\n', '')
-              .replace('\r', '')
-              .replace('\\', '\\\\')
-              .replace('"', '\\"')
-             for l in fd.readlines()]
-  fd.close()
+  mode = 'rb' if binary else 'r'
+  encoding = None if binary else 'utf-8'
+  with open(fn, mode, encoding=encoding) as fd:
+    if raw:
+      pre, post = '"""\\', '"""'
+      lines = [l.replace('\n', '').replace('\r', '') for l in fd.readlines() if not l.startswith('from __future__ import')]
+    elif compress:
+      data = ''.join(fd.readlines()) if not binary else fd.read()
+      compressed_data = zlib.compress(data.encode('utf-8') if not binary else data, 9)
+      encoded_data = base64.b64encode(compressed_data)
+      pre, post = 'zlib.decompress(base64.b64decode("""\\', '"""))'
+      lines = br79(encoded_data.decode('utf-8'))
+    else:
+      pre, post = '"""\\', '"""'
+      lines = [l.replace('\n', '').replace('\r', '').replace('\\', '\\\\').replace('"', '\\"') for l in fd.readlines()]
   return pre, lines, post
 
 def breed_python(fn, main, compress=False, gtk_images=False):
